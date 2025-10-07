@@ -33,7 +33,11 @@ coverage/
 # Editor/IDE directories and files
 .vscode/*
 !.vscode/extensions.json
+# Keep most of .idea ignored, but allow committing code style scheme
 .idea/
+!.idea/codeStyles/
+!.idea/codeStyles/codeStyleConfig.xml
+!.idea/codeStyles/GoogleTypeScript.xml
 *.iml
 
 # OS-specific files
