@@ -36,10 +36,13 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const tag = core.getInput('tag');
-            const sha = core.getInput('sha');
+            const tag = process.env.TAG;
+            const sha = process.env.SHA;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
+            if (!tag || !sha) {
+              throw new Error(`Missing tag or sha. tag='${tag}', sha='${sha}'`);
+            }
             try {
               // Try to create a lightweight tag
               await github.rest.git.createRef({
@@ -57,19 +60,22 @@ jobs:
               }
             }
           result-encoding: string
-          inputs: |
-            tag: ${{ steps.meta.outputs.tag }}
-            sha: ${{ steps.meta.outputs.sha }}
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          SHA: ${{ steps.meta.outputs.sha }}
 
       - name: Create prerelease
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const tag = core.getInput('tag');
+            const tag = process.env.TAG;
             const pr = context.payload.pull_request;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
+            if (!tag) {
+              throw new Error('Missing TAG env for prerelease');
+            }
             const name = `Snapshot ${tag}`;
             const body = `Snapshot generated from squash-merge into develop.\n\n` +
               `- PR: #${pr.number} ${pr.title}\n` +
@@ -97,5 +103,5 @@ jobs:
               }
             }
           result-encoding: string
-          inputs: |
-            tag: ${{ steps.meta.outputs.tag }}
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
