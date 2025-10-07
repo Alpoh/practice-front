@@ -158,3 +158,18 @@ export default defineConfig([
   },
 ])
 ```
+
+
+## Testing
+
+This project uses Vitest + Testing Library for unit tests.
+
+- Run tests in watch mode: `npm run test`
+- Run tests once: `npm run test:run`
+- Run with coverage: `npm run test:coverage`
+
+Key test files:
+- src/__tests__/api.test.ts covers API base URL resolution and registerUser success/error paths.
+- src/__tests__/RegisterPage.test.tsx covers form validation and submission behavior.
+
+Vitest is configured in vite.config.ts with the jsdom environment and a setup file at src/setupTests.ts to enable jest-dom matchers.

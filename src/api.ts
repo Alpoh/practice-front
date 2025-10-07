@@ -1,7 +1,10 @@
 export function getApiBaseUrl(): string {
   const fromEnv = import.meta.env?.VITE_API_BASE_URL as string | undefined;
+  // Allow tests or runtime overrides via a global variable
+  const fromGlobal = (globalThis as unknown as { VITE_API_BASE_URL?: string }).VITE_API_BASE_URL;
+  const chosen = (fromEnv && fromEnv.trim().length > 0) ? fromEnv : (fromGlobal && fromGlobal.trim().length > 0 ? fromGlobal : undefined);
   // Default to local backend if not provided
-  return (fromEnv && fromEnv.trim().length > 0) ? fromEnv : 'http://localhost:8080';
+  return chosen ?? 'http://localhost:8080';
 }
 
 function extractApiMessage(input: unknown): { message?: string; error?: string } {
