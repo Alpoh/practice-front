@@ -46,6 +46,36 @@ Notes:
 - GitHub does not expose the merge method directly in the workflow payload; this job will run for any merged PR into `develop`. If you only allow squash merges on `develop` (recommended), this precisely matches the requirement.
 - You can find the workflow at `.github/workflows/snapshot-on-develop.yml`.
 
+## CI: Release workflow on merge commit to master
+
+A second GitHub Actions workflow creates a GitHub Release whenever a merge commit lands on the `master` branch.
+
+- Trigger: push to `master`.
+- Condition: the pushed commit must be a merge commit (detected by multiple parents).
+- Tag format: `release-master-YYYYMMDD-HHMMSS-<shortSHA>`.
+- Behavior: creates a lightweight tag at the merge commit and publishes a non-prerelease GitHub Release with that tag.
+- Permissions: Uses the default `GITHUB_TOKEN` with `contents: write`.
+- Location: `.github/workflows/release-on-master-merge.yml`.
+
+Note: The workflow also includes an informational guard job that warns when a direct push to `master` is detected (i.e., no PR is associated). This does not block the push; branch protection must be configured in repository settings to fully enforce the policy.
+
+## Protecting the master branch (required to block direct pushes)
+
+To ensure `master` only accepts changes via Pull Requests and not direct pushes, configure Branch Protection in GitHub:
+
+1. Go to GitHub → Repository → Settings → Branches.
+2. Click “Add branch protection rule”.
+3. Branch name pattern: `master`.
+4. Enable at least:
+   - “Require a pull request before merging”.
+   - “Require approvals” (optional but recommended, e.g., 1 approval).
+   - “Restrict who can push to matching branches” (recommended: limit to admins/bots if needed).
+   - “Do not allow bypassing the above settings” (Enterprise/Org setting if available).
+   - Optionally enable “Require status checks to pass” and select the CI workflows.
+5. Save changes.
+
+After enabling these rules, direct pushes to `master` will be blocked and all changes must come via PRs. The release workflow will run automatically when a PR merge commit reaches `master`. 
+
 ## Notes
 
 - The email field is optional on the form; basic validation is included (password match, min length).
