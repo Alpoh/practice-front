@@ -1,0 +1,150 @@
+name: Release on merge commit to master
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create release for merge commit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect if commit is a merge commit
+        id: detect
+        run: |
+          PARENTS=$(git show -s --format=%P $GITHUB_SHA)
+          COUNT=$(echo "$PARENTS" | wc -w | tr -d ' ')
+          echo "parents=$PARENTS"
+          echo "count=$COUNT"
+          if [ "$COUNT" -gt 1 ]; then
+            echo "is_merge=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_merge=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Stop if not a merge commit
+        if: steps.detect.outputs.is_merge != 'true'
+        run: |
+          echo "Not a merge commit on master. Skipping release."
+
+      - name: Compute release metadata
+        if: steps.detect.outputs.is_merge == 'true'
+        id: meta
+        run: |
+          SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-8)
+          TS=$(date -u +"%Y%m%d-%H%M%S")
+          TAG="release-master-${TS}-${SHORT_SHA}"
+          NAME="Release ${TAG}"
+          BODY=$(cat << 'EOF'
+          Automated release generated from a merge commit into master.
+
+          This release was created by the release-on-master-merge workflow.
+          EOF
+          )
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+          echo "body<<BODY_END" >> $GITHUB_OUTPUT
+          echo "$BODY" >> $GITHUB_OUTPUT
+          echo "BODY_END" >> $GITHUB_OUTPUT
+
+      - name: Create tag
+        if: steps.detect.outputs.is_merge == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const tag = process.env.TAG;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const sha = context.sha;
+            try {
+              await github.rest.git.createRef({
+                owner,
+                repo,
+                ref: `refs/tags/${tag}`,
+                sha,
+              });
+              core.info(`Created tag ${tag}`);
+            } catch (e) {
+              if (e.status === 422 && /Reference already exists/.test(e.message)) {
+                core.info(`Tag ${tag} already exists, continuing.`);
+              } else {
+                throw e;
+              }
+            }
+          result-encoding: string
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+
+      - name: Create GitHub Release
+        if: steps.detect.outputs.is_merge == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const tag = process.env.TAG;
+            const name = process.env.NAME;
+            const body = process.env.BODY;
+            try {
+              await github.rest.repos.createRelease({
+                owner,
+                repo,
+                tag_name: tag,
+                name,
+                body,
+                draft: false,
+                prerelease: false,
+              });
+              core.info(`Created release ${name}`);
+            } catch (e) {
+              if (e.status === 422 && /already_exists/.test(e.message)) {
+                core.info(`Release for ${tag} already exists, skipping.`);
+              } else {
+                throw e;
+              }
+            }
+          result-encoding: string
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          NAME: ${{ steps.meta.outputs.name }}
+          BODY: ${{ steps.meta.outputs.body }}
+
+  guard-direct-push:
+    name: Guard against direct pushes to master (informational)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    steps:
+      - name: Determine if commit likely came from a PR
+        id: prcheck
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Try to find an associated PR for this commit
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+            });
+            const hasPR = Array.isArray(prs) && prs.length > 0;
+            core.setOutput('has_pr', hasPR ? 'true' : 'false');
+            if (!hasPR) {
+              core.warning('This push to master does not appear to be associated with a Pull Request. Consider enabling Branch Protection to prevent direct pushes.');
+            }
+      - name: Warn on direct push
+        if: steps.prcheck.outputs.has_pr != 'true'
+        run: |
+          echo "WARNING: Direct push detected on master. Please use Pull Requests."
+          # Note: To actually block direct pushes, configure Branch Protection in repository settings.
