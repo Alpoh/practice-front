@@ -2,7 +2,7 @@ name: Snapshot on squash-merge to develop
 
 on:
   pull_request:
-    types: [closed]
+    types: [ closed ]
     branches:
       - develop
 
