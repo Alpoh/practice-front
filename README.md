@@ -4,7 +4,8 @@ This project includes a simple User Registration page that sends a registration 
 
 - Endpoint used: `${VITE_API_BASE_URL}/auth/register`
 - Method: POST
-- Body (JSON): `{ "username": string, "email"?: string, "password": string }`
+- Body (JSON): `{ "email": string, "password": string, "name": string, "mobileNumber"?: string, "address"?: string }`
+  - Constraints: email max 320 chars (valid format), name max 120, mobileNumber max 32, address max 500. Password: min 6 chars on client (backend requires presence).
 
 ## Node.js compatibility
 

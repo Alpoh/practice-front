@@ -5,9 +5,11 @@ export function getApiBaseUrl(): string {
 }
 
 export async function registerUser(payload: {
-  username: string;
-  email?: string;
+  email: string;
   password: string;
+  name: string;
+  mobileNumber?: string;
+  address?: string;
 }): Promise<{ success: boolean; message: string }>
 {
   const base = getApiBaseUrl();
@@ -22,11 +24,12 @@ export async function registerUser(payload: {
     });
 
     const text = await res.text();
-    // Try to parse JSON, but tolerate plain text
+    // Try to parse JSON, but tolerate plain text; backend may return 201 with empty body
     let data: any = undefined;
     try { data = text ? JSON.parse(text) : undefined; } catch { /* ignore */ }
 
     if (!res.ok) {
+      // Backend returns ApiError { status, message }
       const msg = data?.message || data?.error || text || `Request failed with status ${res.status}`;
       return { success: false, message: msg };
     }
