@@ -33,6 +33,19 @@ If not set, the app defaults to `http://localhost:8080`.
 - Start dev server: `npm run dev`
 - Open the app in your browser and use the registration form.
 
+## CI: Snapshot workflow on squash-merge to develop
+
+This repository includes a GitHub Actions workflow that creates a snapshot tag and prerelease whenever a pull request into the `develop` branch is merged (squash-merge is the intended flow).
+
+- Trigger: PR closed, merged = true, base = `develop`.
+- Tag format: `snapshot-develop-YYYYMMDD-HHMMSS-pr<PR>-<shortSHA>`.
+- The tag points to the PR's merge commit SHA; a prerelease with the same tag name is also created.
+- Permissions: Uses the default `GITHUB_TOKEN` with `contents: write`.
+
+Notes:
+- GitHub does not expose the merge method directly in the workflow payload; this job will run for any merged PR into `develop`. If you only allow squash merges on `develop` (recommended), this precisely matches the requirement.
+- You can find the workflow at `.github/workflows/snapshot-on-develop.yml`.
+
 ## Notes
 
 - The email field is optional on the form; basic validation is included (password match, min length).
