@@ -173,3 +173,16 @@ Key test files:
 - src/__tests__/RegisterPage.test.tsx covers form validation and submission behavior.
 
 Vitest is configured in vite.config.ts with the jsdom environment and a setup file at src/setupTests.ts to enable jest-dom matchers.
+
+
+## JetBrains Code Style: Google TypeScript
+
+This project includes a JetBrains/IntelliJ code style scheme for TypeScript that follows Google-style conventions (2-space indentation, single quotes, required semicolons, etc.).
+
+- Location: `.idea/codeStyles/GoogleTypeScript.xml`
+- Enabled via: `.idea/codeStyles/codeStyleConfig.xml` (per-project settings, preferred scheme set to `GoogleTypeScript`).
+
+Usage in JetBrains IDEs (WebStorm/IntelliJ IDEA):
+- Open Settings/Preferences → Editor → Code Style.
+- Ensure "Use per-project settings" is enabled and the scheme is set to `GoogleTypeScript`.
+- Press "Apply". Existing files can be reformatted with "Code → Reformat Code".
