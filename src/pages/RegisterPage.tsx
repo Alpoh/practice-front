@@ -1,15 +1,16 @@
-import type {FormEvent} from 'react';
-import {useMemo, useState} from 'react';
-import {registerUser} from '../api';
+import type { FormEvent } from 'react';
+import { useMemo, useState } from 'react';
+import { registerUser } from '../api';
 import './RegisterPage.css';
 
-export default function RegisterPage() {
+export default function RegisterPage({ onGoToSignIn }: { onGoToSignIn?: () => void }) {
     const [email, setEmail] = useState('');
     const [name, setName] = useState('');
     const [mobileNumber, setMobileNumber] = useState('');
     const [address, setAddress] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -44,12 +45,6 @@ export default function RegisterPage() {
         setLoading(false);
         if (resp.success) {
             setMessage(resp.message);
-            setEmail('');
-            setName('');
-            setMobileNumber('');
-            setAddress('');
-            setPassword('');
-            setConfirmPassword('');
         } else {
             setError(resp.message);
         }
@@ -137,9 +132,21 @@ export default function RegisterPage() {
                     <div className="hint error">Passwords do not match.</div>
                 )}
 
-                <button type="submit" disabled={!canSubmit}>{loading ? 'Registering...' : 'Register'}</button>
+                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                    <button type="submit" disabled={!canSubmit}>{loading ? 'Registering...' : 'Register'}</button>
+                </div>
 
-                {message && <div className="alert success">{message}</div>}
+                {message && (
+                    <div className="alert success">
+                        {message}
+                        {onGoToSignIn && (
+                            <div style={{ marginTop: 8 }}>
+                                After confirming your email, you can
+                                <button type="button" onClick={onGoToSignIn} style={{ marginLeft: 6 }}>Sign In</button>.
+                            </div>
+                        )}
+                    </div>
+                )}
                 {error && <div className="alert error">{error}</div>}
             </form>
         </div>
