@@ -89,6 +89,96 @@ workflow will run automatically when a PR merge commit reaches `master`.
 - Success and error messages are shown based on the backend response. The client accepts either JSON with a `message`
   field or plain text responses.
 
+## Despliegue en Azure (guía paso a paso)
+
+A continuación encontrarás dos opciones sencillas para publicar este frontend en Azure. La opción recomendada es Azure Static Web Apps (CI/CD automático con GitHub Actions). Como alternativa, puedes usar Azure Storage Static Website.
+
+Prerrequisitos comunes:
+- Node 18+ instalado localmente.
+- Una suscripción de Azure activa.
+- Acceso al repositorio en GitHub.
+
+### 1) Instalar Azure CLI
+
+Windows (PowerShell):
+- winget install -e --id Microsoft.AzureCLI
+
+macOS (Homebrew):
+- brew update && brew install azure-cli
+
+Linux (script oficial):
+- curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash  (Debian/Ubuntu)
+- Otras distros: https://learn.microsoft.com/cli/azure/install-azure-cli
+
+Verifica la instalación:
+- az version
+
+Inicia sesión en tu cuenta de Azure:
+- az login
+- Si tienes varias suscripciones, selecciona una: az account set --subscription "<SUBSCRIPTION_NAME_OR_ID>"
+
+Configura tu grupo de recursos si aún no existe (ejemplo en East US):
+- az group create -n rg-pratice-front -l eastus
+
+### 2) Opción A (recomendada): Azure Static Web Apps con CI/CD
+
+Este repositorio ya incluye:
+- .github/workflows/azure-static-web-apps.yml → construye (npm ci; npm run build) y publica dist.
+- staticwebapp.config.json → asegura que el enrutamiento SPA haga fallback a index.html.
+
+Pasos:
+1. Crea el recurso Static Web App (portal o CLI):
+   - Portal: Azure Portal → Create a resource → Static Web App → selecciona GitHub como origen (o crea manual y obtén el token de despliegue).
+   - CLI (opcional, primer despliegue manual):
+     az staticwebapp create \
+       -n swa-pratice-front \
+       -g rg-pratice-front \
+       -s https://github.com/<ORG>/<REPO> \
+       -l eastus \
+       --branch master \
+       --login-with-github false
+   Nota: Si no conectas GitHub desde el portal, necesitarás el Deployment Token.
+
+2. Obtén el Deployment Token de la Static Web App (en el portal: Static Web App → Deployment token).
+3. En GitHub → Settings → Secrets and variables → Actions → New repository secret
+   - Nombre: AZURE_STATIC_WEB_APPS_API_TOKEN
+   - Valor: pega el token copiado del portal.
+4. Realiza un push a master (o abre un PR a master). El workflow azure-static-web-apps.yml construirá y publicará automáticamente.
+5. Configura variables para el frontend (por ejemplo VITE_API_BASE_URL) en la Static Web App:
+   - En el portal: Static Web App → Configuration → Application settings → agrega VITE_API_BASE_URL con el valor de tu API.
+   - Vuelve a desplegar (o espera el próximo push) para que el build las tome.
+
+Ramas y previews:
+- En pull requests hacia master, el workflow crea entornos de preview.
+- Al cerrar el PR, se manda la acción "close" para limpiar el entorno de preview.
+
+### 3) Opción B: Azure Storage Static Website (alternativa económica)
+
+1. Crea una cuenta de Storage y habilita sitio estático:
+   - az storage account create -n stpraticefront123 -g rg-pratice-front -l eastus --sku Standard_LRS
+   - az storage blob service-properties update --account-name stpraticefront123 --static-website --index-document index.html --404-document index.html
+2. Construye el sitio localmente:
+   - npm ci && npm run build (genera la carpeta dist)
+3. Sube los archivos a $web (contenedor especial):
+   - az storage blob upload-batch -s ./dist -d '$web' --account-name stpraticefront123
+4. Obtén la URL pública:
+   - az storage account show -n stpraticefront123 -g rg-pratice-front --query "primaryEndpoints.web" -o tsv
+
+Variables de entorno en Storage Static Website:
+- Como es hosting estático puro, las variables deben resolverse en build time. Define VITE_API_BASE_URL antes de construir:
+  - En tu CI/CD o localmente: VITE_API_BASE_URL="https://tu-api" npm run build
+
+### 4) Manejar Azure en este mismo repo o en uno nuevo
+
+- Mismo repo: Recomendado para frontends; este repo ya trae el workflow para Static Web Apps. Solo agrega el secreto y listo.
+- Repo nuevo: Si prefieres separar infra/CI, puedes crear un repo "infra" con IaC (Bicep/Terraform) y dejar este repo solo para código. En ese caso, el repo de infra creará el recurso de Static Web App y colocará el token como secret en este repo via GitHub API.
+
+### 5) Solución de problemas
+
+- 404 en rutas SPA: ya se agregó staticwebapp.config.json con fallback a index.html.
+- Error de CORS al llamar la API: habilita CORS en tu backend o usa un API Management/función intermedia.
+- Variable VITE_API_BASE_URL no tomada: en Static Web Apps las variables se aplican en build. Asegúrate de que el build se ejecute después de definirlas.
+
 ---
 
 Below is the original Vite + React + TypeScript template README for reference.

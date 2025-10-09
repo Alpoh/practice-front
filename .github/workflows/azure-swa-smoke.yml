@@ -1,0 +1,72 @@
+name: Azure SWA Smoke Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Attempt deploy if secret is present (true/false)"
+        required: false
+        default: "true"
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  build:
+    name: Build frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+  deploy:
+    name: Deploy to Azure Static Web Apps (if token present)
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.deploy != 'false' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Ensure deployment token is available
+        run: |
+          if [ -z "${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}" ]; then
+            echo "ERROR: Missing secret AZURE_STATIC_WEB_APPS_API_TOKEN.\n"
+            echo "Set it in GitHub → Settings → Secrets and variables → Actions (value = Deployment token from your Static Web App)."
+            exit 1
+          fi
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: "/"
+          output_location: "dist"
+          skip_app_build: true
+          skip_api_build: true
