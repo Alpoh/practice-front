@@ -216,3 +216,17 @@ Usage in JetBrains IDEs (WebStorm/IntelliJ IDEA):
 - Open Settings/Preferences → Editor → Code Style.
 - Ensure "Use per-project settings" is enabled and the scheme is set to `GoogleTypeScript`.
 - Press "Apply". Existing files can be reformatted with "Code → Reformat Code".
+
+<!-- SNAPSHOT-AUTO-SECTION:START -->
+## Snapshot Version (auto-updated)
+
+- Version: snapshot-develop-20251013-082129-pr14-d36f894d-SNAPSHOT
+- PR: #14 [feature/improve-workflows] optimize workflow to edit HELP.md
+- Author: @Alpoh
+- Commit: d36f894d90b60ddf674f08be158759c2fd226a07
+- Branch: develop
+
+### PR Description
+_No description provided._
+
+<!-- SNAPSHOT-AUTO-SECTION:END -->
