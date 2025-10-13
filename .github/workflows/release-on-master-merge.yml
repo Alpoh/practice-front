@@ -121,6 +121,101 @@ jobs:
           NAME: ${{ steps.meta.outputs.name }}
           BODY: ${{ steps.meta.outputs.body }}
 
+      - name: Get associated PR for this commit
+        if: steps.detect.outputs.is_merge == 'true'
+        id: prinfo
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const sha = context.sha;
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({ owner, repo, commit_sha: sha });
+            if (Array.isArray(prs) && prs.length > 0) {
+              const pr = prs[0];
+              core.setOutput('number', pr.number.toString());
+              core.setOutput('title', pr.title || '');
+              core.setOutput('body', pr.body || '');
+            } else {
+              core.setOutput('number', '');
+              // Fallback to commit message if no PR found
+              const { data: commit } = await github.rest.repos.getCommit({ owner, repo, ref: sha });
+              core.setOutput('title', commit.commit.message.split('\n')[0]);
+              core.setOutput('body', commit.commit.message);
+            }
+          result-encoding: string
+
+      - name: Update HELP.md with release info
+        if: steps.detect.outputs.is_merge == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const helpPath = path.join(process.env.GITHUB_WORKSPACE, 'HELP.md');
+
+            const tag = process.env.TAG;
+            const prNumber = process.env.PR_NUMBER;
+            const title = process.env.PR_TITLE;
+            const body = process.env.PR_BODY;
+            const actor = context.actor;
+            const ts = new Date().toISOString();
+
+            const start = '<!-- RELEASE-AUTO-SECTION:START -->';
+            const end = '<!-- RELEASE-AUTO-SECTION:END -->';
+            const header = `\n${start}\n`;
+            const footer = `\n${end}\n`;
+
+            const lines = [];
+            lines.push('# Release Information (auto-updated)');
+            lines.push('');
+            lines.push(`- Version (tag): ${tag}`);
+            if (prNumber) {
+              lines.push(`- PR: #${prNumber} ${title}`);
+            } else {
+              lines.push(`- Source: Merge commit on master`);
+              lines.push(`- Title: ${title}`);
+            }
+            lines.push(`- Actor: @${actor}`);
+            lines.push('');
+            lines.push('## Release Notes');
+            lines.push(body && body.trim() ? body : '_No description provided._');
+            lines.push('');
+
+            const section = lines.join('\n');
+            let content = '';
+            if (fs.existsSync(helpPath)) {
+              content = fs.readFileSync(helpPath, 'utf8');
+            } else {
+              content = '# HELP\n\nThis file is automatically updated on releases.\n';
+            }
+            const block = header + section + footer;
+            if (content.includes(start) && content.includes(end)) {
+              const regex = new RegExp(`${start}[\s\S]*?${end}`, 'm');
+              content = content.replace(regex, block.trim());
+            } else {
+              content = content.trimEnd() + '\n\n' + block.trim();
+            }
+            fs.writeFileSync(helpPath, content, 'utf8');
+            core.info('HELP.md updated with release info.');
+          result-encoding: string
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          PR_NUMBER: ${{ steps.prinfo.outputs.number }}
+          PR_TITLE: ${{ steps.prinfo.outputs.title }}
+          PR_BODY: ${{ steps.prinfo.outputs.body }}
+
+      - name: Commit and push HELP.md changes
+        if: steps.detect.outputs.is_merge == 'true'
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: 'HELP.md'
+          message: 'chore: update HELP.md for release ${{ steps.meta.outputs.tag }}'
+          default_author: github_actions
+          push: true
+
   guard-direct-push:
     name: Guard against direct pushes to master (informational)
     runs-on: ubuntu-latest

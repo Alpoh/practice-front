@@ -65,23 +65,35 @@ Note: The workflow also includes an informational guard job that warns when a di
 no PR is associated). This does not block the push; branch protection must be configured in repository settings to fully
 enforce the policy.
 
-## Protecting the master branch (required to block direct pushes)
+## Protecting master and develop branches (block direct pushes)
 
-To ensure `master` only accepts changes via Pull Requests and not direct pushes, configure Branch Protection in GitHub:
+Direct pushes cannot be blocked by a workflow alone; they must be prevented by Branch Protection rules in GitHub.
+This repo includes an automation to configure those rules for you, or you can set them manually.
 
-1. Go to GitHub → Repository → Settings → Branches.
-2. Click “Add branch protection rule”.
-3. Branch name pattern: `master`.
-4. Enable at least:
-    - “Require a pull request before merging”.
-    - “Require approvals” (optional but recommended, e.g., 1 approval).
-    - “Restrict who can push to matching branches” (recommended: limit to admins/bots if needed).
-    - “Do not allow bypassing the above settings” (Enterprise/Org setting if available).
-    - Optionally enable “Require status checks to pass” and select the CI workflows.
-5. Save changes.
+Option A — Run the provided workflow (recommended):
 
-After enabling these rules, direct pushes to `master` will be blocked and all changes must come via PRs. The release
-workflow will run automatically when a PR merge commit reaches `master`.
+- Go to the Actions tab → "Configure branch protection (master & develop)" → Run workflow.
+- The workflow will apply protection to `master` and `develop`:
+  - Require a pull request before merging (with at least 1 approval).
+  - Enforce for admins.
+  - Disallow force pushes and branch deletions.
+  - Require conversation resolution.
+
+Option B — Configure manually in Settings:
+
+1. GitHub → Repository → Settings → Branches.
+2. Add two rules (one for `master`, one for `develop`).
+3. For each rule, enable at least:
+   - "Require a pull request before merging" (set approvals to 1+ as desired).
+   - "Enforce for administrators" (recommended).
+   - "Restrict who can push to matching branches" (optional; further limits direct pushes).
+   - Optionally enable "Require status checks to pass" and select CI checks.
+4. Save changes.
+
+Note: To apply branch protection via the provided workflow, you may need a Personal Access Token (classic) with repo admin access on this repository. Create a PAT with at least the `repo` scope and add it as a repository secret named `ADMIN_TOKEN`. The workflow will use `ADMIN_TOKEN` if present, and fall back to `GITHUB_TOKEN`. If neither has sufficient privileges, the step will fail with 403.
+
+After enabling these rules, direct pushes to `master` and `develop` will be blocked and all changes must come via PRs.
+The existing workflows will continue to run on merges to their respective branches.
 
 ## Notes
 
