@@ -1,0 +1,62 @@
+name: Configure branch protection (master & develop)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protect:
+    name: Apply branch protection rules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure branch protection via REST API
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ADMIN_TOKEN || secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const branches = ['master', 'develop'];
+
+            for (const branch of branches) {
+              try {
+                await github.rest.repos.updateBranchProtection({
+                  owner,
+                  repo,
+                  branch,
+                  // Disable required status checks by default; can be customized later
+                  required_status_checks: null,
+                  // Enforce protection for admins too
+                  enforce_admins: true,
+                  // Require PRs (with at least 1 approval) before merging
+                  required_pull_request_reviews: {
+                    required_approving_review_count: 1,
+                    dismiss_stale_reviews: false,
+                    require_code_owner_reviews: false,
+                    require_last_push_approval: false
+                  },
+                  // No push restrictions to specific users/teams by default
+                  restrictions: null,
+                  // Additional safety options
+                  required_linear_history: false,
+                  allow_force_pushes: false,
+                  allow_deletions: false,
+                  required_conversation_resolution: true
+                });
+                core.info(`Branch protection applied to '${branch}'.`);
+              } catch (e) {
+                if (e.status === 404) {
+                  core.warning(`Branch '${branch}' not found; skipped.`);
+                } else if (e.status === 403) {
+                  core.setFailed(`Insufficient permissions to protect '${branch}'. Use a token with repository admin access (e.g., a PAT stored as secret ADMIN_TOKEN).`);
+                  throw e;
+                } else {
+                  core.setFailed(`Failed to protect '${branch}': ${e.message}`);
+                  throw e;
+                }
+              }
+            }
+            core.info('Branch protection configuration complete.');
+        env: {}

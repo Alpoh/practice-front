@@ -65,29 +65,131 @@ Note: The workflow also includes an informational guard job that warns when a di
 no PR is associated). This does not block the push; branch protection must be configured in repository settings to fully
 enforce the policy.
 
-## Protecting the master branch (required to block direct pushes)
+## Protecting master and develop branches (block direct pushes)
 
-To ensure `master` only accepts changes via Pull Requests and not direct pushes, configure Branch Protection in GitHub:
+Direct pushes cannot be blocked by a workflow alone; they must be prevented by Branch Protection rules in GitHub.
+This repo includes an automation to configure those rules for you, or you can set them manually.
 
-1. Go to GitHub → Repository → Settings → Branches.
-2. Click “Add branch protection rule”.
-3. Branch name pattern: `master`.
-4. Enable at least:
-    - “Require a pull request before merging”.
-    - “Require approvals” (optional but recommended, e.g., 1 approval).
-    - “Restrict who can push to matching branches” (recommended: limit to admins/bots if needed).
-    - “Do not allow bypassing the above settings” (Enterprise/Org setting if available).
-    - Optionally enable “Require status checks to pass” and select the CI workflows.
-5. Save changes.
+Option A — Run the provided workflow (recommended):
 
-After enabling these rules, direct pushes to `master` will be blocked and all changes must come via PRs. The release
-workflow will run automatically when a PR merge commit reaches `master`.
+- Go to the Actions tab → "Configure branch protection (master & develop)" → Run workflow.
+- The workflow will apply protection to `master` and `develop`:
+  - Require a pull request before merging (with at least 1 approval).
+  - Enforce for admins.
+  - Disallow force pushes and branch deletions.
+  - Require conversation resolution.
+
+Option B — Configure manually in Settings:
+
+1. GitHub → Repository → Settings → Branches.
+2. Add two rules (one for `master`, one for `develop`).
+3. For each rule, enable at least:
+   - "Require a pull request before merging" (set approvals to 1+ as desired).
+   - "Enforce for administrators" (recommended).
+   - "Restrict who can push to matching branches" (optional; further limits direct pushes).
+   - Optionally enable "Require status checks to pass" and select CI checks.
+4. Save changes.
+
+Note: To apply branch protection via the provided workflow, you may need a Personal Access Token (classic) with repo admin access on this repository. Create a PAT with at least the `repo` scope and add it as a repository secret named `ADMIN_TOKEN`. The workflow will use `ADMIN_TOKEN` if present, and fall back to `GITHUB_TOKEN`. If neither has sufficient privileges, the step will fail with 403.
+
+After enabling these rules, direct pushes to `master` and `develop` will be blocked and all changes must come via PRs.
+The existing workflows will continue to run on merges to their respective branches.
 
 ## Notes
 
 - The email field is optional on the form; basic validation is included (password match, min length).
 - Success and error messages are shown based on the backend response. The client accepts either JSON with a `message`
   field or plain text responses.
+
+## Despliegue en Azure (guía paso a paso)
+
+A continuación encontrarás dos opciones sencillas para publicar este frontend en Azure. La opción recomendada es Azure Static Web Apps (CI/CD automático con GitHub Actions). Como alternativa, puedes usar Azure Storage Static Website.
+
+Prerrequisitos comunes:
+- Node 18+ instalado localmente.
+- Una suscripción de Azure activa.
+- Acceso al repositorio en GitHub.
+
+### 1) Instalar Azure CLI
+
+Windows (PowerShell):
+- winget install -e --id Microsoft.AzureCLI
+
+macOS (Homebrew):
+- brew update && brew install azure-cli
+
+Linux (script oficial):
+- curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash  (Debian/Ubuntu)
+- Otras distros: https://learn.microsoft.com/cli/azure/install-azure-cli
+
+Verifica la instalación:
+- az version
+
+Inicia sesión en tu cuenta de Azure:
+- az login
+- Si tienes varias suscripciones, selecciona una: az account set --subscription "<SUBSCRIPTION_NAME_OR_ID>"
+
+Configura tu grupo de recursos si aún no existe (ejemplo en East US):
+- az group create -n rg-pratice-front -l eastus
+
+### 2) Opción A (recomendada): Azure Static Web Apps con CI/CD
+
+Este repositorio ya incluye:
+- .github/workflows/azure-static-web-apps.yml → construye (npm ci; npm run build) y publica dist.
+- staticwebapp.config.json → asegura que el enrutamiento SPA haga fallback a index.html.
+
+Pasos:
+1. Crea el recurso Static Web App (portal o CLI):
+   - Portal: Azure Portal → Create a resource → Static Web App → selecciona GitHub como origen (o crea manual y obtén el token de despliegue).
+   - CLI (opcional, primer despliegue manual):
+     az staticwebapp create \
+       -n swa-pratice-front \
+       -g rg-pratice-front \
+       -s https://github.com/<ORG>/<REPO> \
+       -l eastus \
+       --branch master \
+       --login-with-github false
+   Nota: Si no conectas GitHub desde el portal, necesitarás el Deployment Token.
+
+2. Obtén el Deployment Token de la Static Web App (en el portal: Static Web App → Deployment token).
+3. En GitHub → Settings → Secrets and variables → Actions → New repository secret
+   - Nombre: AZURE_STATIC_WEB_APPS_API_TOKEN
+   - Valor: pega el token copiado del portal.
+4. Realiza un push a master (o abre un PR a master). El workflow azure-static-web-apps.yml construirá y publicará automáticamente.
+5. Configura variables para el frontend (por ejemplo VITE_API_BASE_URL) en la Static Web App:
+   - En el portal: Static Web App → Configuration → Application settings → agrega VITE_API_BASE_URL con el valor de tu API.
+   - Vuelve a desplegar (o espera el próximo push) para que el build las tome.
+
+Ramas y previews:
+- En pull requests hacia master, el workflow crea entornos de preview.
+- Al cerrar el PR, se manda la acción "close" para limpiar el entorno de preview.
+
+### 3) Opción B: Azure Storage Static Website (alternativa económica)
+
+1. Crea una cuenta de Storage y habilita sitio estático:
+   - az storage account create -n stpraticefront123 -g rg-pratice-front -l eastus --sku Standard_LRS
+   - az storage blob service-properties update --account-name stpraticefront123 --static-website --index-document index.html --404-document index.html
+2. Construye el sitio localmente:
+   - npm ci && npm run build (genera la carpeta dist)
+3. Sube los archivos a $web (contenedor especial):
+   - az storage blob upload-batch -s ./dist -d '$web' --account-name stpraticefront123
+4. Obtén la URL pública:
+   - az storage account show -n stpraticefront123 -g rg-pratice-front --query "primaryEndpoints.web" -o tsv
+
+Variables de entorno en Storage Static Website:
+- Como es hosting estático puro, las variables deben resolverse en build time. Define VITE_API_BASE_URL antes de construir:
+  - En tu CI/CD o localmente: VITE_API_BASE_URL="https://tu-api" npm run build
+
+### 4) Manejar Azure en este mismo repo o en uno nuevo
+
+- Mismo repo: Recomendado para frontends; este repo ya trae el workflow para Static Web Apps. Solo agrega el secreto y listo.
+- Repo nuevo: Si prefieres separar infra/CI, puedes crear un repo "infra" con IaC (Bicep/Terraform) y dejar este repo solo para código. En ese caso, el repo de infra creará el recurso de Static Web App y colocará el token como secret en este repo via GitHub API.
+
+### 5) Solución de problemas
+
+- 404 en rutas SPA: ya se agregó staticwebapp.config.json con fallback a index.html.
+- Error de CORS al llamar la API: habilita CORS en tu backend o usa un API Management/función intermedia.
+- Variable VITE_API_BASE_URL no tomada: en Static Web Apps las variables se aplican en build. Asegúrate de que el build se ejecute después de definirlas.
 
 ---
 
@@ -204,3 +306,17 @@ Usage in JetBrains IDEs (WebStorm/IntelliJ IDEA):
 - Open Settings/Preferences → Editor → Code Style.
 - Ensure "Use per-project settings" is enabled and the scheme is set to `GoogleTypeScript`.
 - Press "Apply". Existing files can be reformatted with "Code → Reformat Code".
+
+<!-- SNAPSHOT-AUTO-SECTION:START -->
+## Snapshot Version (auto-updated)
+
+- Version: snapshot-develop-20251015-131450-pr17-446b9840-SNAPSHOT
+- PR: #17 [feature/improve-junie] fix build error
+- Author: @Alpoh
+- Commit: 446b9840980b0e7276a10d7a2ee9633e40d237c3
+- Branch: develop
+
+### PR Description
+_No description provided._
+
+<!-- SNAPSHOT-AUTO-SECTION:END -->
