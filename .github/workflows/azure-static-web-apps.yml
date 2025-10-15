@@ -33,7 +33,14 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Skip deploy (no token available)
+        if: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN == '' }}
+        run: |
+          echo "No AZURE_STATIC_WEB_APPS_API_TOKEN available. Skipping deploy step."
+          echo "This is expected for pull_request runs from forks. Build succeeded."
+
       - name: Deploy to Azure Static Web Apps
+        if: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN != '' }}
         # Pinned to a full commit SHA to avoid supply‑chain risks (ref: Sonar rule githubactions:S7637)
         # Corresponds to Azure/static-web-apps-deploy@v1
         uses: Azure/static-web-apps-deploy@b9dedd0a3d3f2b2d5e3a0b8a3d0f9a7f2b6c4a1d
