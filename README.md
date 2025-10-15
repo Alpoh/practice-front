@@ -310,10 +310,10 @@ Usage in JetBrains IDEs (WebStorm/IntelliJ IDEA):
 <!-- SNAPSHOT-AUTO-SECTION:START -->
 ## Snapshot Version (auto-updated)
 
-- Version: snapshot-develop-20251013-130600-pr15-f0e43731-SNAPSHOT
-- PR: #15 [feature/azure-cli] azure cli support
+- Version: snapshot-develop-20251015-131450-pr17-446b9840-SNAPSHOT
+- PR: #17 [feature/improve-junie] fix build error
 - Author: @Alpoh
-- Commit: f0e43731010cd80cf04b2082ee44103a005ee71e
+- Commit: 446b9840980b0e7276a10d7a2ee9633e40d237c3
 - Branch: develop
 
 ### PR Description
