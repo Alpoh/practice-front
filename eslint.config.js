@@ -22,7 +22,7 @@ export default [
             parserOptions: {
                 ecmaVersion: 2022,
                 sourceType: 'module',
-                ecmaFeatures: { jsx: true },
+                ecmaFeatures: {jsx: true},
                 project: false, // set to true with a tsconfig if you want type-aware rules
             },
             globals: {
@@ -45,10 +45,10 @@ export default [
             'react/jsx-uses-react': 'off',
             // Example stricter rules (tweak to taste):
             'no-unused-vars': 'off',
-            '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+            '@typescript-eslint/no-unused-vars': ['warn', {argsIgnorePattern: '^_', varsIgnorePattern: '^_'}],
         },
         settings: {
-            react: { version: 'detect' },
+            react: {version: 'detect'},
         },
     },
 ];

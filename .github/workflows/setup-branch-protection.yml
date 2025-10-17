@@ -59,4 +59,4 @@ jobs:
               }
             }
             core.info('Branch protection configuration complete.');
-        env: {}
+        env: { }
